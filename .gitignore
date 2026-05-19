@@ -1,0 +1,15 @@
+data/cassandra/
+data/juggling/repository/
+data/juggling/war/
+data/juggling/public/
+data/juggling/imart.war
+data/juggling/imart.zip
+data/mailpit/
+data/postgresql/
+data/resin/
+data/resin1/
+data/resin2/
+data/solr/
+data/httpd/
+
+.DS_Store
