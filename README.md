@@ -32,7 +32,7 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 
 ### Tips
 
-プロキシ環境に構築する場合は、Git、Docker Desktopにプロキシ設定が必要となるケースもあります。
+プロキシ環境に構築する場合は、Git、Docker Desktopにプロキシ設定が必要となるケースもあります。  
 `git clone` や `docker compose build` 、 `docker compose up` コマンドで失敗する場合はプロキシ設定をご確認ください。
 
 - Git  
@@ -403,7 +403,7 @@ docker compose restart httpd
 | 8081       | アプリケーションサーバ(Resin2)で利用しています。                 | http://127.0.0.1:8081/imart/login<br>base-url を設定している場合は正しく表示されない可能性があります。                                                    |
 | 8983       | 検索エンジン(Solr)で利用しています。                             | http://127.0.0.1:8983/solr                                                                                                                                |
 | 9160       | NoSQL データベース(Cassandra)で利用しています。                  | Thrift クライアントにて接続                                                                                                                               |
-| 1433       | データベース(SQL Server)で利用しています。                       | データベースクライアントアプリより接続<br> ホスト: 127.0.0.1<br>ポート: 1433<br>データベース名: master<br>ユーザー名: imart<br>パスワード: Str0ng!Pass123 |
+| 1433       | データベース(SQL Server)で利用しています。                       | データベースクライアントアプリより接続<br> ホスト: 127.0.0.1<br>ポート: 1433<br>データベース名: iap_db<br>ユーザー名: imart<br>パスワード: Str0ng!Pass123 |
 | 8188       | Accel Studio テスト機能 テスト実行エージェントで利用しています。 | http://127.0.0.1:8188                                                                                                                                     |
 | 8025       | メールサーバ(mailpit)で利用しています。                          | http://127.0.0.1:8025                                                                                                                                     |
 
