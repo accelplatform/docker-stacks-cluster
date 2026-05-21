@@ -21,12 +21,26 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 
 - カスタマーサクセスライセンスを有していること
   - [intra-mart Accel Platform セットアップガイド - ライセンスについて](https://document.intra-mart.jp/library/iap/public/setup/iap_setup_guide/texts/license_registration/index.html#license-type)
-- `Git` がインストールされていること
-  - [git - Install](https://git-scm.com/install/windows)
-- `Git LFS` がインストールされていること
-  - [git-lfs](https://github.com/git-lfs/git-lfs/wiki/Installation)
-- `Docker` がインストールされていること
+- `Docker` (WSL)がインストールされていること
   - [dockerdocs - Install Docker Desktop on Windows](https://docs.docker.com/desktop/setup/install/windows-install/)
+    - WSLに `Ubuntu` をインストールすること
+
+      ```sh
+      # Powershell 等のターミナルで以下を実行 ※Ubuntuユーザ／パスワード設定をします
+      wsl --install -d Ubuntu
+      ```
+
+      インストール後はアプリにUbuntuターミナルが追加され、エクスプローラのツリーにLinux > Ubuntuが表示されます。  
+      Ubuntu操作はUbuntuターミナルから行います。
+      - Ubuntuに `Git` がインストールされていること
+        - [git - Install](https://git-scm.com/install/windows)
+      - Ubuntuに `Git LFS` がインストールされていること
+        - [git-lfs](https://github.com/git-lfs/git-lfs/wiki/Installation)
+
+    - Dockerサポートを有効化すること  
+      Docker Desktop UI の settings > Resources > WSL Integration で以下を設定して「Apply & Restart」をクリックします。
+      - Enable integration with my default WSL distroにチェックを入れる
+      - Ubuntuを有効にする
 
 ### Tips
 
@@ -77,7 +91,7 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 ## クローン
 
 下記コマンドを実行することにより、Gitからリポジトリがクローンされます
-`Docker Desktop` を利用する場合、PowerShell等のターミナルから実行してください。
+Ubutunのターミナルから実行してください。
 
 ```sh
 # Gitクローン
@@ -460,8 +474,8 @@ TZ=Asia/Tokyo
 docker compose down
 # 必要に応じてテスト実行エージェントも停止する
 # docker compose down accelstudio-testing-agent
-# データの削除
-Remove-Item -Recurse -Force data/cassandra, data/httpd, data/mailpit, data/postgresql, data/resin, data/resin1, data/resin2, data/solr, data/accelstudio-testing-agent
+# データの削除（消したい永続化データのディレクトリを指定）　
+sudo rm -rf data/cassandra data/httpd data/mailpit data/postgres data/resin data/resin1 data/resin2 data/solr data/accelstudio-testing-agent
 # コンテナの起動
 docker compose up -d
 ```
@@ -470,13 +484,13 @@ docker compose up -d
 
 ```sh
 # プロジェクト以外のjuggling成果物を初期化したい場合
-Remove-Item -Recurse -Force data/juggling/public, data/juggling/repository, data/juggling/war, data/juggling/imart.war, data/juggling/imart.zip
+sudo rm -rf data/juggling/public data/juggling/repository data/juggling/war data/juggling/imart.war data/juggling/imart.zip
 ```
 
 ### 部分的に資材を追加する場合
 
 `data/juggling/public` 及び `data/juggling/war` ディレクトリはそれぞれのサービスにマウントされています。
-その為、それぞれのディレクトリに必要となる資材を追加し、コンテナを再起動することで変更内容を反映することが可能です。
+その為、それぞれのディレクトリに必要となる資材を追加し、コンテナを再起動することで [war, 静的ファイルのビルド](#war-静的ファイルのビルド) せずに変更内容を反映することが可能です。
 
 ```sh
 # コンテナの再起動
@@ -487,5 +501,3 @@ docker compose restart resin2
 # Apache HTTPdの再起動
 docker compose restart httpd
 ```
-
-Apache HTTPd の場合は再起動せずに変更が反映されるケースが多いでしょう。
