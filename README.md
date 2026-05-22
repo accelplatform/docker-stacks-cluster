@@ -188,12 +188,12 @@ docker exec docker-stacks-cluster-sqlserver-sqlserver-1 \
 
 ## クローン
 
-下記コマンドを実行することにより、Gitからリポジトリがクローンされます
+下記コマンドを実行することにより、Gitからリポジトリがクローンされます  
 Ubuntuのターミナルから実行してください。
 
 ```sh
 # Gitクローン
-git clone #TODO#
+git clone -b 2026spring-sqlserver https://github.com/accelplatform/docker-stacks-cluster.git
 ```
 
 [Git LFS](../README.md#前提条件)をインストールしていない場合、imm/lib、juggling-build-war/libが正しくダウンロードできず、サイズが非常に小さいファイルになることがあります。  
