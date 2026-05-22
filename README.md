@@ -91,7 +91,7 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 ## クローン
 
 下記コマンドを実行することにより、Gitからリポジトリがクローンされます
-Ubutunのターミナルから実行してください。
+Ubuntuのターミナルから実行してください。
 
 ```sh
 # Gitクローン
