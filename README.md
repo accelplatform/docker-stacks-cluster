@@ -23,12 +23,26 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 
 - カスタマーサクセスライセンスを有していること
   - [intra-mart Accel Platform セットアップガイド - ライセンスについて](https://document.intra-mart.jp/library/iap/public/setup/iap_setup_guide/texts/license_registration/index.html#license-type)
-- `Git` がインストールされていること
-  - [git - Install](https://git-scm.com/install/windows)
-- `Git LFS` がインストールされていること
-  - [git-lfs](https://github.com/git-lfs/git-lfs/wiki/Installation)
-- `Docker` がインストールされていること
+- `Docker` (WSL)がインストールされていること
   - [dockerdocs - Install Docker Desktop on Windows](https://docs.docker.com/desktop/setup/install/windows-install/)
+    - WSLに `Ubuntu` をインストールすること
+
+      ```sh
+      # Powershell 等のターミナルで以下を実行 ※Ubuntuユーザ／パスワード設定をします
+      wsl --install -d Ubuntu
+      ```
+
+      インストール後はアプリにUbuntuターミナルが追加され、エクスプローラのツリーにLinux > Ubuntuが表示されます。  
+      Ubuntu操作はUbuntuターミナルから行います。
+      - Ubuntuに `Git` がインストールされていること
+        - [git - Install](https://git-scm.com/install/windows)
+      - Ubuntuに `Git LFS` がインストールされていること
+        - [git-lfs](https://github.com/git-lfs/git-lfs/wiki/Installation)
+
+    - Dockerサポートを有効化すること  
+      Docker Desktop UI の settings > Resources > WSL Integration で以下を設定して「Apply & Restart」をクリックします。
+      - Enable integration with my default WSL distroにチェックを入れる
+      - Ubuntuを有効にする
 
 ### Tips
 
@@ -45,6 +59,102 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 - Docker Desktop  
   環境に合わせて以下を適宜設定します。  
   Docker Desktop UI の settings > Resources > Proxies で設定。
+
+## macOS (Apple Silicon) で利用する場合の制限事項
+
+このリポジトリの初期構成は SQL Server 2025 Developer Edition を採用していますが、SQL Server 2025 のコンテナイメージは **x86_64 (amd64) 専用** で公開されており、起動時に AVX / AVX2 CPU 命令を要求します。  
+macOS 26 (Tahoe) 以降の Apple Silicon (M1 / M2 / M3 / M4) ホストでは、Docker Desktop の Rosetta 2 経由で SQL Server 2025 コンテナを起動すると、AVX state 周りのエミュレーション仕様変更によって PAL (Platform Abstraction Layer) 初期化中にアサーションエラーで必ずクラッシュします。これは Microsoft 公式に複数の Issue として報告されている既知の問題で、SQL Server 側の Cumulative Update (CU1 / CU2 / CU3 / CU4 / CU4-GDR1) では解消されません (本リポジトリでも全タグを検証して確認済み)。
+
+x86_64 Linux / x86_64 Windows ホストで利用する場合、本セクションの対応は不要です。
+
+### 症状
+
+`docker compose logs sqlserver` に以下のようなクラッシュログが繰り返し出力され、コンテナが `healthy` になりません。
+
+```text
+sqlserver-1 | This program has encountered a fatal error and cannot continue running ...
+sqlserver-1 |     Stack Trace:
+sqlserver-1 |                  file://package6/windows/system32/sqlpal.dll+0x...
+sqlserver-1 |        Process: 12 - sqlservr
+sqlserver-1 |     Last errno: 2
+sqlserver-1 | Last errno text: No such file or directory
+```
+
+クラッシュダンプ (`./data/sqlserver/log/core.sqlservr.*.d/` 配下) を確認すると、本質的なエラーは以下のアサーション失敗です。
+
+```text
+assertion failed [x86_avx_state_ptr->xsave_header.xfeatures == kSupportedXFeatureBits]:
+(ThreadContextSignals.cpp:414 rt_sigreturn)
+```
+
+`Last errno: 2 (No such file or directory)` はファイル欠落を意味するものではなく、PAL 初期化失敗時に出力される汎用フォールバック値です。
+
+### 既知の問題 (Microsoft 公式 Issue)
+
+本問題は Microsoft の SQL Server コンテナ公式リポジトリ ([microsoft/mssql-docker](https://github.com/microsoft/mssql-docker)) で複数の Issue として報告されています。執筆時点で Microsoft からの恒久的修正は提供されておらず、SQL Server 2022 イメージ等への切り替えがワークアラウンドとして案内されています。
+
+- [Issue #936 \- \[2025-latest\] Container crashes on macOS](https://github.com/microsoft/mssql-docker/issues/936)
+- [Issue #940 \- SQL Server 2025-latest container fails to start](https://github.com/microsoft/mssql-docker/issues/940)
+- [Issue #942 \- \[2025-latest\] Container crashes on macOS 26 (Tahoe)](https://github.com/microsoft/mssql-docker/issues/942)
+- [Issue #943 \- Segmentation fault running the 2025-latest image on macOS Tahoe](https://github.com/microsoft/mssql-docker/issues/943)
+- [Issue #955 \- \[2025-latest\] Container crashes on macOS 26 (Tahoe) and podman](https://github.com/microsoft/mssql-docker/issues/955)
+- 関連解説: [macOS Tahoe breaks SQL Server on Docker containers on Apple Silicon - Born SQL](https://bornsql.ca/blog/macos-tahoe-breaks-sql-server-on-docker-containers-on-apple-silicon/)
+
+### 回避手順
+
+SQL Server 2022 Developer Edition (AVX を要求しない) へダウングレードすることで Apple Silicon + Rosetta 2 環境でも起動可能です。SQL Server 2025 固有機能 (JSON ネイティブ型、ベクトル検索 等) を利用しない場合は機能要件を満たします。
+
+#### 1. Docker Desktop の Rosetta 2 を有効化
+
+Docker Desktop → Settings → General → 「Use Rosetta for x86_64/amd64 emulation on Apple Silicon」を ON にします。
+
+#### 2. `compose.yaml` の `sqlserver` サービスを編集
+
+`platform: linux/amd64` の明示と `image` タグの変更、および `build.platforms` の追加を行います。
+
+```yaml
+sqlserver:
+  image: $DOCKER_IMAGE_REPOSITORY/${DOCKER_IMAGE_TAG_PREFIX}sqlserver:2022-latest
+  platform: linux/amd64
+  build:
+    context: ./sqlserver
+    platforms:
+      - linux/amd64
+  user: root
+  # 以下、既存の environment / volumes / ports 等はそのまま
+```
+
+#### 3. `sqlserver/Dockerfile` のベースイメージを変更
+
+```diff
+-FROM mcr.microsoft.com/mssql/server:2025-latest
++FROM mcr.microsoft.com/mssql/server:2022-latest
+```
+
+#### 4. 過去の初期化途中データがある場合はクリーンアップ
+
+SQL Server 2025 で起動を試みた後に切り替える場合、`./data/sqlserver/` 配下に初期化が途中で停止した残骸が残ります。クラッシュログを退避してからディレクトリを作り直してください。
+
+```sh
+docker compose down sqlserver
+mv ./data/sqlserver/log /tmp/sqlserver-crashlog-$(date +%s) 2>/dev/null || true
+rm -rf ./data/sqlserver
+mkdir -p ./data/sqlserver
+docker compose up -d --build sqlserver
+```
+
+#### 5. 起動確認
+
+```sh
+docker compose ps sqlserver
+# STATUS が "Up (healthy)" になれば成功
+docker exec docker-stacks-cluster-sqlserver-sqlserver-1 \
+  /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT @@VERSION"
+```
+
+### 補足
+
+- 同梱の JDBC ドライバ `mssql-jdbc-13.4.0.jre11.jar` は SQL Server 2017 / 2019 / 2022 / 2025 を公式サポート対象としているため、ダウングレードに伴うドライバ変更は不要です。
 
 ## 構成
 
@@ -79,7 +189,7 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 ## クローン
 
 下記コマンドを実行することにより、Gitからリポジトリがクローンされます
-`Docker Desktop` を利用する場合、PowerShell等のターミナルから実行してください。
+Ubuntuのターミナルから実行してください。
 
 ```sh
 # Gitクローン
@@ -116,20 +226,20 @@ docker-stacks-cluster/
 - プロキシ環境の場合、resin/overwrite/conf ディレクトリの resin.properties もしくは resin.xml にプロキシの設定が必要なケースがあります。  
   外部サービスとの接続に失敗する場合は以下を確認してください。
   - [プロキシ環境下で intra-mart AccelPlatform から外部サイトにアクセスする方法を教えてください。](https://product.intra-mart.support/hc/ja/articles/20083075832473-%E3%83%97%E3%83%AD%E3%82%AD%E3%82%B7%E7%92%B0%E5%A2%83%E4%B8%8B%E3%81%A7-intra-mart-AccelPlatform-%E3%81%8B%E3%82%89%E5%A4%96%E9%83%A8%E3%82%B5%E3%82%A4%E3%83%88%E3%81%AB%E3%82%A2%E3%82%AF%E3%82%BB%E3%82%B9%E3%81%99%E3%82%8B%E6%96%B9%E6%B3%95%E3%82%92%E6%95%99%E3%81%88%E3%81%A6%E3%81%8F%E3%81%A0%E3%81%95%E3%81%84)
-- Cassandra、Solrの資材を設置せず[コンテナのビルド](#コンテナのビルド)を実施するとエラーとなります。環境に含めない場合は、compose.yaml の `cassandra` `solr` サービス全体と、`resin` - `depends_on` の `cassandra` `solr` をコメントアウトすることで、ビルド、サービス起動から除外できます。
+- Cassandra、Solrの資材を設置せず[イメージのビルド](#イメージのビルド)を実施するとエラーとなります。環境に含めない場合は、compose.yaml の `cassandra` `solr` サービス全体と、`resin` - `depends_on` の `cassandra` `solr` をコメントアウトすることで、ビルド、サービス起動から除外できます。
 
 ## コンテナのセットアップ
 
-### コンテナのビルド
+### イメージのビルド
 
 下記コマンドを実行することにより、コンテナイメージの作成が行われます。
 
 ```sh
 # カレントディレクトリをdocker-stacks-clusterにする
 cd docker-stacks-cluster
-# メイン（resin、httpd、sqlserver等）
+# メイン（resin、httpd、sqlserver等）イメージのビルド
 docker compose build --no-cache
-# war作成＋静的ファイル配置
+# war作成＋静的ファイル配置イメージのビルド
 docker compose build --no-cache juggling-build-war
 ```
 
@@ -143,6 +253,7 @@ juggling プロジェクトを差し替える場合は[ユーザ作成のJugglin
 [Accel Studio テスト機能 テスト実行エージェント](#accel-studio-テスト機能-テスト実行エージェント)を利用しない場合は accel-studio-testing-config.xml で `testing-enabled` を `false` に設定してからビルドしてください。 　　
 
 ```sh
+# war, 静的ファイルのビルド
 docker compose run --rm juggling-build-war
 ```
 
@@ -191,12 +302,12 @@ statusがup状態であればコンテナは起動しています。コンテナ
 
 `http://127.0.0.1/imart/system/login` でシステム管理者画面へログインできます。
 
-セットアップを実行してください。
+セットアップを実行してください。  
 初期状態のプロジェクトで作成した場合、テナントIDは `default` 、Cassandra設定は初期値で設定してください。
 
 #### Tips
 
-テナントセットアップ後はアクティベーションを実行してください。
+テナントセットアップ後はアクティベーションを実行してください。  
 [intra-mart Accel Platform ライセンスポータル操作ガイド - 環境を利用するための手続き](https://document.intra-mart.jp/library/iap/public/im_license_portal/im_license_portal_user_guide/texts/basic_guide/environment/procedure.html#environment-procedure)
 
 ### テナント画面へのログイン
@@ -313,7 +424,7 @@ docker compose restart httpd
 Accel Studio テスト機能 テスト実行エージェントはメインイメージに含まれていないため、以下のコマンドでビルドします。
 
 ```sh
-# イメージのビルド
+# テスト実行エージェントイメージのビルド
 docker compose build --no-cache accelstudio-testing-agent
 ```
 
@@ -334,7 +445,7 @@ docker compose down accelstudio-testing-agent
 
 #### ベースURL
 
-初期状態の設定のベースURL（ http://127.0.0.1/imart ）を使用しない場合、`.env`ファイルに含まれる`ACCELSTUDIO_TESTING_AGENT_ACCELPLATFORM_BASE_URL`環境変数でベースURLを適切に設定してください。
+初期状態の設定のベースURL（ http://127.0.0.1/imart ）を使用しない場合、`.env`ファイルに含まれる`ACCELSTUDIO_TESTING_AGENT_ACCELPLATFORM_BASE_URL`環境変数でベースURLを適切に設定してください。  
 ベースURLが不適切な場合、エージェントがテスト対象のURLにアクセスする際に認証に失敗する可能性があります。
 
 #### バージョンによるエラー
@@ -358,12 +469,13 @@ data/accelstudio-testing-agent/logs/accel_studio_testing_agent.log
 
 ユーザモジュール（immファイル）を環境に適用する機能です。
 
-これは、開発用途を考えた機能であり、本番環境での利用は推奨されません。
+これは、開発用途を考えた機能であり、本番環境での利用は推奨されません。  
 本番環境の場合は Juggling プロジェクトへモジュールを追加し、ビルドを行って下さい。
 
 以下のコマンドを実行することにより、イメージをビルドします。
 
 ```sh
+# ユーザモジュールの追加展開イメージのビルド
 docker compose build --no-cache extract-imm
 ```
 
@@ -409,7 +521,7 @@ docker compose restart httpd
 
 ### メールの確認
 
-`mailpit`コンテナを利用することで、メールの送信内容を確認することができます。
+`mailpit`コンテナを利用することで、メールの送信内容を確認することができます。  
 http://127.0.0.1:8025 にアクセスすることで、メールの一覧を確認することができます。
 
 ### タイムゾーンの変更
@@ -422,7 +534,7 @@ TZ=Asia/Tokyo
 
 ### データの永続化
 
-`data`ディレクトリ配下に各サービスのデータが永続化されます。
+`data`ディレクトリ配下に各サービスのデータが永続化されます。  
 その為、コンテナの停止、起動を行った場合においても前回の状態を引き継ぐことができます。
 
 - `data/cassandra`
@@ -463,7 +575,7 @@ docker compose down
 # 必要に応じてテスト実行エージェントも停止する
 # docker compose down accelstudio-testing-agent
 # データの削除
-Remove-Item -Recurse -Force data/cassandra, data/httpd, data/mailpit, data/sqlserver, data/resin, data/resin1, data/resin2, data/solr, data/accelstudio-testing-agent
+sudo rm -rf data/cassandra data/httpd data/mailpit data/sqlserver data/resin data/resin1 data/resin2 data/solr data/accelstudio-testing-agent
 # コンテナの起動
 docker compose up -d
 ```
@@ -472,12 +584,12 @@ docker compose up -d
 
 ```sh
 # プロジェクト以外のjuggling成果物を初期化したい場合
-Remove-Item -Recurse -Force data/juggling/public, data/juggling/repository, data/juggling/war, data/juggling/imart.war, data/juggling/imart.zip
+sudo rm -rf data/juggling/public data/juggling/repository data/juggling/war data/juggling/imart.war data/juggling/imart.zip
 ```
 
 ### 部分的に資材を追加する場合
 
-`data/juggling/public` 及び `data/juggling/war` ディレクトリはそれぞれのサービスにマウントされています。
+`data/juggling/public` 及び `data/juggling/war` ディレクトリはそれぞれのサービスにマウントされています。  
 その為、それぞれのディレクトリに必要となる資材を追加し、コンテナを再起動することで変更内容を反映することが可能です。
 
 ```sh
