@@ -44,7 +44,7 @@ Accel Platform Docker stacks cluster は、初期設定の状態で下記バー�
 
 ### Tips
 
-プロキシ環境に構築する場合は、Git、Docker Desktopにプロキシ設定が必要となるケースもあります。
+プロキシ環境に構築する場合は、Git、Docker Desktopにプロキシ設定が必要となるケースもあります。  
 `git clone` や `docker compose build` 、 `docker compose up` コマンドで失敗する場合はプロキシ設定をご確認ください。
 
 - Git  
@@ -95,7 +95,7 @@ Ubuntuのターミナルから実行してください。
 
 ```sh
 # Gitクローン
-git clone https://github.com/accelplatform/docker-stacks-cluster.git
+git clone -b 2026spring-postgres https://github.com/accelplatform/docker-stacks-cluster.git
 ```
 
 [Git LFS](../README.md#前提条件)をインストールしていない場合、imm/lib、juggling-build-war/libが正しくダウンロードできず、サイズが非常に小さいファイルになることがあります。  
@@ -128,20 +128,20 @@ docker-stacks-cluster/
 - プロキシ環境の場合、resin/overwrite/conf ディレクトリの resin.properties もしくは resin.xml にプロキシの設定が必要なケースがあります。  
   外部サービスとの接続に失敗する場合は以下を確認してください。
   - [プロキシ環境下で intra-mart AccelPlatform から外部サイトにアクセスする方法を教えてください。](https://product.intra-mart.support/hc/ja/articles/20083075832473-%E3%83%97%E3%83%AD%E3%82%AD%E3%82%B7%E7%92%B0%E5%A2%83%E4%B8%8B%E3%81%A7-intra-mart-AccelPlatform-%E3%81%8B%E3%82%89%E5%A4%96%E9%83%A8%E3%82%B5%E3%82%A4%E3%83%88%E3%81%AB%E3%82%A2%E3%82%AF%E3%82%BB%E3%82%B9%E3%81%99%E3%82%8B%E6%96%B9%E6%B3%95%E3%82%92%E6%95%99%E3%81%88%E3%81%A6%E3%81%8F%E3%81%A0%E3%81%95%E3%81%84)
-- Cassandra、Solrの資材を設置せず[コンテナのビルド](#コンテナのビルド)を実施するとエラーとなります。環境に含めない場合は、compose.yaml の `cassandra` `solr` サービス全体と、`resin` - `depends_on` の `cassandra` `solr` をコメントアウトすることで、ビルド、サービス起動から除外できます。
+- Cassandra、Solrの資材を設置せず[イメージのビルド](#イメージのビルド)を実施するとエラーとなります。環境に含めない場合は、compose.yaml の `cassandra` `solr` サービス全体と、`resin` - `depends_on` の `cassandra` `solr` をコメントアウトすることで、ビルド、サービス起動から除外できます。
 
 ## コンテナのセットアップ
 
-### コンテナのビルド
+### イメージのビルド
 
 下記コマンドを実行することにより、コンテナイメージの作成が行われます。
 
 ```sh
 # カレントディレクトリをdocker-stacks-clusterにする
 cd docker-stacks-cluster
-# メイン（resin、httpd、postgresql等）
+# メイン（resin、httpd、postgresql等）イメージのビルド
 docker compose build --no-cache
-# war作成＋静的ファイル配置
+# war作成＋静的ファイル配置イメージのビルド
 docker compose build --no-cache juggling-build-war
 ```
 
@@ -155,6 +155,7 @@ juggling プロジェクトを差し替える場合は[ユーザ作成のJugglin
 [Accel Studio テスト機能 テスト実行エージェント](#accel-studio-テスト機能-テスト実行エージェント)を利用しない場合は accel-studio-testing-config.xml で `testing-enabled` を `false` に設定してからビルドしてください。 　　
 
 ```sh
+#　war, 静的ファイルのビルド
 docker compose run --rm juggling-build-war
 ```
 
@@ -325,7 +326,7 @@ docker compose restart httpd
 Accel Studio テスト機能 テスト実行エージェントはメインイメージに含まれていないため、以下のコマンドでビルドします。
 
 ```sh
-# イメージのビルド
+# テスト実行エージェントイメージのビルド
 docker compose build --no-cache accelstudio-testing-agent
 ```
 
@@ -346,7 +347,7 @@ docker compose down accelstudio-testing-agent
 
 #### ベースURL
 
-初期状態の設定のベースURL（ http://127.0.0.1/imart ）を使用しない場合、`.env`ファイルに含まれる`ACCELSTUDIO_TESTING_AGENT_ACCELPLATFORM_BASE_URL`環境変数でベースURLを適切に設定してください。
+初期状態の設定のベースURL（ http://127.0.0.1/imart ）を使用しない場合、`.env`ファイルに含まれる`ACCELSTUDIO_TESTING_AGENT_ACCELPLATFORM_BASE_URL`環境変数でベースURLを適切に設定してください。  
 ベースURLが不適切な場合、エージェントがテスト対象のURLにアクセスする際に認証に失敗する可能性があります。
 
 #### バージョンによるエラー
@@ -370,12 +371,13 @@ data/accelstudio-testing-agent/logs/accel_studio_testing_agent.log
 
 ユーザモジュール（immファイル）を環境に適用する機能です。
 
-これは、開発用途を考えた機能であり、本番環境での利用は推奨されません。
+これは、開発用途を考えた機能であり、本番環境での利用は推奨されません。  
 本番環境の場合は Juggling プロジェクトへモジュールを追加し、ビルドを行って下さい。
 
 以下のコマンドを実行することにより、イメージをビルドします。
 
 ```sh
+# ユーザモジュールの追加展開イメージのビルド
 docker compose build --no-cache extract-imm
 ```
 
@@ -413,11 +415,16 @@ docker compose restart httpd
 | 80         | Web サーバ(Apache HTTPd)で利用しています。                       | http://127.0.0.1/imart/<br>http://127.0.0.1/imart/system/login                                                                                   |
 | 8080       | アプリケーションサーバ(Resin1)で利用しています。                 | http://127.0.0.1:8080/imart/login<br>base-url を設定している場合は正しく表示されない可能性があります。                                           |
 | 8081       | アプリケーションサーバ(Resin2)で利用しています。                 | http://127.0.0.1:8081/imart/login<br>base-url を設定している場合は正しく表示されない可能性があります。                                           |
+| 9000       | サーバサイドスクリプト(Resin1)のデバッグで利用しています。       | Visual Studio Code の拡張機能（intra-mart e Builder for Accel Platform）にて接続                                                                 |
+| 9001       | サーバサイドスクリプト(Resin2)のデバッグで利用しています。       | Visual Studio Code の拡張機能（intra-mart e Builder for Accel Platform）にて接続                                                                 |
 | 8983       | 検索エンジン(Solr)で利用しています。                             | http://127.0.0.1:8983/solr                                                                                                                       |
 | 9160       | NoSQL データベース(Cassandra)で利用しています。                  | Thrift クライアントにて接続                                                                                                                      |
 | 5432       | データベース(PostgreSQL)で利用しています。                       | データベースクライアントアプリより接続<br> ホスト: 127.0.0.1<br>ポート: 5432<br>データベース名: iap_db<br>ユーザー名: imart<br>パスワード: imart |
 | 8188       | Accel Studio テスト機能 テスト実行エージェントで利用しています。 | http://127.0.0.1:8188                                                                                                                            |
 | 8025       | メールサーバ(mailpit)で利用しています。                          | http://127.0.0.1:8025                                                                                                                            |
+
+サーバサイドスクリプトのデバッグ用ポート（9000、9001）について、リクエストをどちらの Resin が処理するかは Apache HTTPd の振り分けによって決まります。
+ブレークポイントで停止しない場合は、もう一方の Resin のデバッグ用ポートに接続して試して下さい。
 
 ### メールの確認
 
@@ -475,7 +482,7 @@ docker compose down
 # 必要に応じてテスト実行エージェントも停止する
 # docker compose down accelstudio-testing-agent
 # データの削除（消したい永続化データのディレクトリを指定）　
-sudo rm -rf data/cassandra data/httpd data/mailpit data/postgresql data/resin data/resin1 data/resin2 data/solr data/accelstudio-testing-agent
+sudo rm -rf data/cassandra, data/httpd data/mailpit data/postgresql data/resin data/resin1 data/resin2 data/solr data/accelstudio-testing-agent
 # コンテナの起動
 docker compose up -d
 ```
