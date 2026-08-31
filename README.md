@@ -468,11 +468,16 @@ docker compose restart httpd
 | 80         | Web サーバ(Apache HTTPd)で利用しています。                       | http://127.0.0.1/imart/<br>http://127.0.0.1/imart/system/login                                                                                |
 | 8080       | アプリケーションサーバ(Resin1)で利用しています。                 | http://127.0.0.1:8080/imart/login<br>base-url を設定している場合は正しく表示されない可能性があります。                                        |
 | 8081       | アプリケーションサーバ(Resin2)で利用しています。                 | http://127.0.0.1:8081/imart/login<br>base-url を設定している場合は正しく表示されない可能性があります。                                        |
+| 9000       | サーバサイドスクリプト(Resin1)のデバッグで利用しています。       | Visual Studio Code の拡張機能（intra-mart e Builder for Accel Platform）にて接続                                                              |
+| 9001       | サーバサイドスクリプト(Resin2)のデバッグで利用しています。       | Visual Studio Code の拡張機能（intra-mart e Builder for Accel Platform）にて接続                                                              |
 | 8983       | 検索エンジン(Solr)で利用しています。                             | http://127.0.0.1:8983/solr                                                                                                                    |
 | 9160       | NoSQL データベース(Cassandra)で利用しています。                  | Thrift クライアントにて接続                                                                                                                   |
 | 1521       | データベース(Oracle)で利用しています。                           | データベースクライアントアプリより接続<br>ホスト: 127.0.0.1<br>ポート: 1521<br>サービス名: FREEPDB1<br>ユーザー名: imart<br>パスワード: imart |
 | 8188       | Accel Studio テスト機能 テスト実行エージェントで利用しています。 | http://127.0.0.1:8188                                                                                                                         |
 | 8025       | メールサーバ(mailpit)で利用しています。                          | http://127.0.0.1:8025                                                                                                                         |
+
+サーバサイドスクリプトのデバッグ用ポート（9000、9001）について、リクエストをどちらの Resin が処理するかは Apache HTTPd の振り分けによって決まります。
+ブレークポイントで停止しない場合は、もう一方の Resin のデバッグ用ポートに接続して試して下さい。
 
 ### メールの確認
 
