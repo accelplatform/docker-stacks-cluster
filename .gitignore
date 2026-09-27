@@ -4,6 +4,7 @@ data/juggling/war/
 data/juggling/public/
 data/juggling/imart.war
 data/juggling/imart.zip
+data/juggling/.project-backup/
 data/mailpit/
 data/postgresql/
 data/resin/
@@ -12,4 +13,5 @@ data/resin2/
 data/solr/
 data/httpd/
 
+.devcontainer/
 .DS_Store
